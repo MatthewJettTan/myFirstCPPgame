@@ -22,7 +22,6 @@ int main(void)
 #pragma region imgui
 	rlImGuiSetup(true);
 
-
 	ImGuiIO &io = ImGui::GetIO(); (void)io;
 	////io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;       // Enable Keyboard Controls
 	////io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;       // Enable gamepad Controls

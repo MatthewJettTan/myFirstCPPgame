@@ -1,18 +1,33 @@
 #include <raylib.h>
 #include "gameMain.h"
 #include <asserts.h>
+#include <assetManager.h>
+#include <gameMap.h>
+#include <helpers.h>
+#include <worldGenerator.h>
+#include <imgui.h>
+#include <raymath.h>
 
 struct GameData
 {
-
-	float positionX = 100;
-	float positionY = 100;
+	GameMap gameMap;
+	Camera2D camera;
 
 }gameData;
 
+AssetManager assetManager;
 
 bool initGame()
 {
+	assetManager.loadAll();
+
+	generateWorld(gameData.gameMap);
+
+	// initialize member variables of camera
+	gameData.camera.target = { 0, 0 };
+	gameData.camera.rotation = 0.f;
+	gameData.camera.zoom = 50.f;
+
 
 	return true;
 }
@@ -22,23 +37,105 @@ bool updateGame()
 	float deltaTime = GetFrameTime();
 	if (deltaTime > 1.f / 5) { deltaTime = 1 / 5.f; }
 
-	Color c;
-	c.r = 255;
-	c.g = 0;
-	c.b = 200;
-	c.a = 255;
+	gameData.camera.offset = { GetScreenWidth() / 2.f, GetScreenHeight() / 2.f };
+
+	ClearBackground({ 75, 75, 150, 255 });
+
+#pragma region camera movement
+
+	static float CAMERA_SPEED = 10;
+	if (IsKeyDown(KEY_LEFT)) {gameData.camera.target.x -= CAMERA_SPEED * deltaTime;}
+	if (IsKeyDown(KEY_RIGHT)) { gameData.camera.target.x += CAMERA_SPEED * deltaTime; }
+	if (IsKeyDown(KEY_UP)) { gameData.camera.target.y -= CAMERA_SPEED * deltaTime; }
+	if (IsKeyDown(KEY_DOWN)) { gameData.camera.target.y += CAMERA_SPEED * deltaTime; }
+
+#pragma endregion
+
+	Vector2 worldPos = GetScreenToWorld2D(GetMousePosition(), gameData.camera);
+	int blockX = (int)floor(worldPos.x);
+	int blockY = (int)floor(worldPos.y);
+
+	if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+	{
+		auto b = gameData.gameMap.getBlockSafe(blockX, blockY);
+
+		if (b)
+		{
+			*b = {};
+		}
+	}
+
+	if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT))
+	{
+		auto b = gameData.gameMap.getBlockSafe(blockX, blockY);
+		if (b)
+		{
+			b->type = Block::gold;
+		}
+	}
 
 
-	if (IsKeyDown(KEY_A)) { gameData.positionX -= 200 * deltaTime; }
-	if (IsKeyDown(KEY_D)) { gameData.positionX += 200 * deltaTime; }
-	if (IsKeyDown(KEY_W)) { gameData.positionY -= 200 * deltaTime; }
-	if (IsKeyDown(KEY_S)) { gameData.positionY += 200 * deltaTime; }
+	BeginMode2D(gameData.camera);
 
+	Vector2 topLeftView = GetScreenToWorld2D({ 0, 0 }, gameData.camera);
+	Vector2 bottomRightView = GetScreenToWorld2D({ (float)GetScreenWidth(), (float)GetScreenHeight() }, gameData.camera);
 
-	DrawRectangle(gameData.positionX, gameData.positionY, 50, 50, c);
+	int startXView = (int)floorf(topLeftView.x - 1);
+	int endXView = (int)ceilf(bottomRightView.x - 1);
+	int startYView = (int)floorf(topLeftView.y - 1);
+	int endYView = (int)ceilf(bottomRightView.y - 1);
+
+	startXView = Clamp(startXView, 0, gameData.gameMap.w - 1);
+	endXView = Clamp(endXView, 0, gameData.gameMap.w - 1);
+
+	startYView = Clamp(startYView, 0, gameData.gameMap.h - 1);
+	endYView = Clamp(endYView, 0, gameData.gameMap.h - 1);
+
+	for (int y = startYView; y < endYView; y++)
+	{
+		for (int x = startXView; x < endXView; x++)
+		{
+			auto& b = gameData.gameMap.getBlockUnsafe(x, y);
+
+			if (b.type != Block::air)
+			{
+				DrawTexturePro(
+					assetManager.textures,
+					getTextureAtlas(b.type, 0, 32, 32),	// source
+					{(float)x, (float)y, 1, 1},	// dest
+					{ 0, 0 },		// origin (top-left corner)
+					0.0f,		// rotation
+					WHITE		// tint
+				);
+			}
+		}
+	}
+
+	// drwa selected block
+	DrawTexturePro(
+		assetManager.frame,
+		{ 0, 0, (float)assetManager.frame.width, (float)assetManager.frame.height },
+		{ (float)blockX, (float)blockY, 1, 1 },
+		{ 0, 0 },
+		0.f,
+		WHITE
+	);
+
+	EndMode2D();
+
+#pragma region ImGui
+	ImGui::Begin("Game control");
+
+	ImGui::SliderFloat("Camera zoom:", &gameData.camera.zoom, 10, 150);
+	ImGui::SliderFloat("Camera speed:", &CAMERA_SPEED, 5, 30);
+
+	ImGui::End();
+
+	DrawFPS(10, 10);
 
 	return true;
 }
+#pragma endregion
 
 void closeGame()
 {
