@@ -1,5 +1,6 @@
 #include "worldGenerator.h"
 #include "randomStuff.h"
+#include <FastNoiseSIMD.h>
 
 void generateWorld(GameMap& gameMap, int seed)
 {
@@ -8,125 +9,58 @@ void generateWorld(GameMap& gameMap, int seed)
 
 	gameMap.create(w, h);
 
-	std::ranlux24_base rng(seed);
+	std::ranlux24_base rng(seed++);
 
-	int keepDirectionTimeDirt = getRandomInt(rng, 5, 40);
-	int directionDirt = getRandomInt(rng, -2, 2);
+	// create pointer to NoiseGenerator
+	std::unique_ptr<FastNoiseSIMD> dirtNoiseGenerator(FastNoiseSIMD::NewFastNoiseSIMD());
+	std::unique_ptr<FastNoiseSIMD> stoneNoiseGenerator(FastNoiseSIMD::NewFastNoiseSIMD());
 
-	int keepDirectionTimeStone = getRandomInt(rng, 5, 40);
-	int directionStone = getRandomInt(rng, -2, 2);
+	// set up seeds for NoiseGenerator
+	dirtNoiseGenerator->SetSeed(seed++);
+	stoneNoiseGenerator->SetSeed(seed++);
 
-	int dirtHeight = 70;
-	int stoneHeight = 90;
+	// Set up configuation
+	dirtNoiseGenerator->SetNoiseType(FastNoiseSIMD::NoiseType::SimplexFractal);
+	dirtNoiseGenerator->SetFractalOctaves(1);
+	dirtNoiseGenerator->SetFrequency(0.02);
+
+	stoneNoiseGenerator->SetNoiseType(FastNoiseSIMD::NoiseType::SimplexFractal);
+	stoneNoiseGenerator->SetFractalOctaves(4);
+	stoneNoiseGenerator->SetFrequency(0.01);
+
+	// generate noises
+	// Allocate two aligned float‑array buffers for noise values.
+	float* dirtNoise = FastNoiseSIMD::GetEmptySet(w);
+	float* stoneNoise = FastNoiseSIMD::GetEmptySet(w);
+	// Compute terrain‑height noise and write results into buffers via SIMD acceleration.
+	dirtNoiseGenerator->FillNoiseSet(dirtNoise, 0.2f, 0, 0, w, 1, 1);
+	stoneNoiseGenerator->FillNoiseSet(stoneNoise, 0.2f, 0, 0, w, 1, 1);
+
+	// convert from [-1,1] to [0,1]
+	for (int i = 0; i < w; i++)
+	{
+		dirtNoise[i] = (dirtNoise[i] + 1) / 2;
+		stoneNoise[i] = (stoneNoise[i] + 1) / 2;
+
+		//dirtNoise[i] = std::pow(dirtNoise[i], 1);		// gentle/steeper dirt curve
+		//stoneNoise[i] = std::pow(stoneNoise[i], 2);		// gentle/steeper stone curve
+	}
+	
+	// offset means the thickness from stoneHeight to dirtHeight
+	// simply speaking, the thickness of dirt
+	int dirtOffsetStart = -5;
+	int dirtOffsetEnd = 35;
+	// the thickness of stones
+	int stoneHeightStart = 80;
+	int stoneHeightEnd = 170;
 
 	for (int x = 0; x < w; x++)
 	{
-		// code for dirt
-		keepDirectionTimeDirt--;
-		if (keepDirectionTimeDirt <= 0)
-		{
-			keepDirectionTimeDirt = getRandomInt(rng, 5, 40);
-			directionDirt = getRandomInt(rng, -2, 2);
-		}
-		if (directionDirt == -1)
-		{
-			if (getRandomChance(rng, 0.5))
-			{
-				dirtHeight--;
-			}
-		}
-		else if (directionDirt == -2)
-		{
-			if (getRandomChance(rng, 0.5))
-			{
-				dirtHeight--;
-			}
-			if (getRandomChance(rng, 0.5))
-			{
-				dirtHeight--;
-			}
-		}
-		else if (directionDirt == 1)
-		{
-			if (getRandomChance(rng, 0.5))
-			{
-				dirtHeight++;
-			}
-		}
-		else if (directionDirt == 2)
-		{
-			if (getRandomChance(rng, 0.5))
-			{
-				dirtHeight++;
-			}
-			if (getRandomChance(rng, 0.5))
-			{
-				dirtHeight++;
-			}
-		}
-		if (dirtHeight < 50)
-		{
-			dirtHeight = 50;
-		}
-		if (dirtHeight > 90)
-		{
-			dirtHeight = 90;
-		}
 
-		// same code for stone
-		keepDirectionTimeStone--;
-		if (keepDirectionTimeStone <= 0)
-		{
-			keepDirectionTimeStone = getRandomInt(rng, 5, 40);
-			directionStone = getRandomInt(rng, -2, 2);
-		}
-		if (directionStone == -1)
-		{
-			if (getRandomChance(rng, 0.5))
-			{
-				stoneHeight--;
-			}
-		}
-		if (directionStone == -2)
-		{
-			if (getRandomChance(rng, 0.5))
-			{
-				stoneHeight--;
-			}
-			if (getRandomChance(rng, 0.5))
-			{
-				stoneHeight--;
-			}
-		}
-		if (directionStone == 1)
-		{
-			if (getRandomChance(rng, 0.5))
-			{
-				stoneHeight++;
-			}
-		}
-		if (directionStone == 2)
-		{
-			if (getRandomChance(rng, 0.5))
-			{
-				stoneHeight++;
-			}
-			if (getRandomChance(rng, 0.5))
-			{
-				stoneHeight++;
-			}
-		}
-		if (stoneHeight < 60)
-		{
-			stoneHeight = 60;
-		}
+		int stoneHeight = stoneHeightStart + (stoneHeightEnd - stoneHeightStart) * stoneNoise[x]; // the curve of stones
+		int dirtOffset = dirtOffsetStart + (dirtOffsetEnd - dirtOffsetStart) * dirtNoise[x];		// the offset
+		int dirtHeight = stoneHeight - dirtOffset;		// the curve of dirt
 
-		if (stoneHeight > 120)
-		{
-			stoneHeight = 120;
-		}
-
-		// set the vertical blocks
 		for (int y = 0; y < h; y++)
 		{
 			Block b;
@@ -136,12 +70,10 @@ void generateWorld(GameMap& gameMap, int seed)
 			{
 				b.type = Block::dirt;
 			}
-
 			if (y == dirtHeight)
 			{
 				b.type = Block::grassBlock;
 			}
-
 			if (y > stoneHeight)
 			{
 				b.type = Block::stone;
@@ -150,4 +82,7 @@ void generateWorld(GameMap& gameMap, int seed)
 			gameMap.getBlockUnsafe(x, y) = b;
 		}
 	}
+
+	FastNoiseSIMD::FreeNoiseSet(dirtNoise);
+	FastNoiseSIMD::FreeNoiseSet(stoneNoise);
 }

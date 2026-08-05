@@ -1,12 +1,14 @@
 #include <raylib.h>
-#include "gameMain.h"
-#include <asserts.h>
-#include <assetManager.h>
-#include <gameMap.h>
-#include <helpers.h>
-#include <worldGenerator.h>
 #include <imgui.h>
+#include <asserts.h>
 #include <raymath.h>
+#include "gameMain.h"
+#include "assetManager.h"
+#include "gameMap.h"
+#include "helpers.h"
+#include "worldGenerator.h"
+
+
 
 struct GameData
 {
@@ -24,7 +26,7 @@ bool initGame()
 	generateWorld(gameData.gameMap);
 
 	// initialize member variables of camera
-	gameData.camera.target = { 0, 0 };
+	gameData.camera.target = { 20, 120 };  // world-space center of view
 	gameData.camera.rotation = 0.f;
 	gameData.camera.zoom = 50.f;
 
