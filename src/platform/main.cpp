@@ -15,7 +15,7 @@ int main(void)
 #endif
 
 	SetConfigFlags(FLAG_WINDOW_RESIZABLE);
-	InitWindow(800, 450, "window name");
+	InitWindow(1600, 900, "window name");
 	SetExitKey(KEY_NULL); // Disable Esc from closing window
 	SetTargetFPS(240);
 
