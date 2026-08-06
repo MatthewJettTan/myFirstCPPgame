@@ -10,6 +10,7 @@
 #include "worldGenerator.h"
 #include <string>
 #include "saveMap.h"
+#include "physics.h"
 
 
 
@@ -25,6 +26,8 @@ struct GameData
 	Structure copyStructure;
 
 	char saveName[100] = {};
+
+	PhysicalEntity player;
 
 }gameData;
 
@@ -42,7 +45,11 @@ bool initGame()
 	// initialize member variables of camera
 	gameData.camera.target = { 0, 110 };  // world-space center of view
 	gameData.camera.rotation = 0.f;
-	gameData.camera.zoom = 50.f;
+	gameData.camera.zoom = 100.f;
+
+	gameData.player.teleport({ 20, 125 });
+	gameData.player.transform.w = 0.9f;
+	gameData.player.transform.h = 1.8f;
 
 
 	return true;
@@ -62,10 +69,20 @@ bool updateGame()
 #pragma region camera movement
 
 	static float CAMERA_SPEED = 10;
-	if (IsKeyDown(KEY_LEFT)) {gameData.camera.target.x -= CAMERA_SPEED * deltaTime;}
-	if (IsKeyDown(KEY_RIGHT)) { gameData.camera.target.x += CAMERA_SPEED * deltaTime; }
-	if (IsKeyDown(KEY_UP)) { gameData.camera.target.y -= CAMERA_SPEED * deltaTime; }
-	if (IsKeyDown(KEY_DOWN)) { gameData.camera.target.y += CAMERA_SPEED * deltaTime; }
+	if (IsKeyDown(KEY_LEFT)) {gameData.player.transform.pos.x -= CAMERA_SPEED * deltaTime;}
+	if (IsKeyDown(KEY_RIGHT)) { gameData.player.transform.pos.x += CAMERA_SPEED * deltaTime; }
+	if (IsKeyDown(KEY_UP)) { gameData.player.transform.pos.y -= CAMERA_SPEED * deltaTime; }
+	if (IsKeyDown(KEY_DOWN)) { gameData.player.transform.pos.y += CAMERA_SPEED * deltaTime; }
+
+#pragma endregion
+
+#pragma region enetities
+
+	gameData.player.applyGravity();
+	gameData.player.resolveConstrains(gameData.gameMap);
+	gameData.player.checkCollisionOnce(gameData.player.transform.pos, gameData.gameMap);
+	gameData.camera.target = gameData.player.transform.pos;
+	gameData.player.updateFinal();
 
 #pragma endregion
 
@@ -182,6 +199,50 @@ bool updateGame()
 
 	}
 
+
+	//// intersection test
+	//Transform2D testFixedRec;
+	//testFixedRec.pos = { 0.5, 110.5 };
+	//testFixedRec.w = 1;
+	//testFixedRec.h = 1;
+
+	//Transform2D testMovingRec;
+	//testMovingRec.pos = { (float)floor(worldPos.x), (float)floor(worldPos.y)};
+	//testMovingRec.w = 1;
+	//testMovingRec.h = 1;
+	//// Just setting the correct parameters, but not obtaining the rectangle
+	//
+	//// transform-transform intersection test 
+	//if (testFixedRec.intersectTransformFromTopLeft(testMovingRec))	// if mouse intersect with the transform2D "test"
+	//{
+	//	DrawRectangleLinesEx(testFixedRec.getAABB(), 0.1, GREEN);	// draw rectangle outline
+	//	DrawRectangleLinesEx(testMovingRec.getAABBFromTopLeft(), 0.1, GREEN);
+	//}
+	//else
+	//{
+	//	DrawRectangleLinesEx(testFixedRec.getAABB(), 0.1, BLUE);
+	//	DrawRectangleLinesEx(testMovingRec.getAABBFromTopLeft(), 0.1, RED);
+	//}
+
+
+	// draw the player
+	Transform2D playerSprite = gameData.player.transform;
+	playerSprite.w = 1;
+	playerSprite.h = 2;
+	//move the sprite so that the bottom of the sprite matches the bottom of the collider
+	playerSprite.pos.y -= (playerSprite.h - gameData.player.transform.h) / 2;
+
+	DrawTexturePro(
+		assetManager.player,
+		{0, 0, (float)assetManager.player.width, (float)assetManager.player.height},
+		playerSprite.getAABB(), //dest
+		{0, 0},// origin (top-left corner)
+		0.0f, // rotation
+		WHITE // tint
+	);
+
+	DrawRectangleLinesEx(gameData.player.transform.getAABB(), 0.1,
+		{20, 101, 250, 120});
 	EndMode2D();
 #pragma endregion
 
@@ -189,6 +250,8 @@ bool updateGame()
 	if (showImgui == true)
 	{
 		ImGui::Begin("Game control");
+
+		ImGui::Text("VELOCITY Y: %f", gameData.player.velocity);
 
 		ImGui::SliderFloat("Camera zoom:", &gameData.camera.zoom, 10, 150);
 		ImGui::SliderFloat("Camera speed:", &CAMERA_SPEED, 5, 50);
