@@ -203,20 +203,22 @@ bool updateGame()
 
 		if (ImGui::Button("Save to file"))
 		{
+			// obtain the file address
 			std::string path = RESOURCES_PATH "structures/";
 			path += gameData.saveName;
 			path += ".bin";
 
-			saveBlockDataToFile(gameData.copyStructure.mapData, gameData.copyStructure.w,
+			saveBlockDataToFile(gameData.copyStructure.structureData, gameData.copyStructure.w,
 				gameData.copyStructure.h, path.c_str());
 		}
 		if (ImGui::Button("Load from file"))
 		{
+			// obtain the file address
 			std::string path = RESOURCES_PATH "structures/";
 			path += gameData.saveName;
 			path += ".bin";
 
-			loadBlockDataFromFile(gameData.copyStructure.mapData, gameData.copyStructure.w,
+			loadBlockDataFromFile(gameData.copyStructure.structureData, gameData.copyStructure.w,
 				gameData.copyStructure.h, path.c_str());
 		}
 

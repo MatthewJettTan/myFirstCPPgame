@@ -6,33 +6,33 @@
 void Structure::create(int w, int h)
 {
 	*this = {};		// reset all the data
-	mapData.resize(w * h);		// set the size of map
+	structureData.resize(w * h);		// set the size of map
 
 	this->w = w;
 	this->h = h;
 
-	for (auto& e : mapData) { e = {}; }		// clear all block data and set all blocks as unsafe
+	for (auto& e : structureData) { e = {}; }		// clear all block data and set all blocks as unsafe
 }
 
 Block& Structure::getBlockUnsafe(int x, int y)
 {
-	permaAssertCommentDevelopement(mapData.size() ==
+	permaAssertCommentDevelopement(structureData.size() ==
 		w * h, "Map data not initialized");
 
 	permaAssertCommentDevelopement(x >= 0 && y >= 0 && x < w && y < h,
 		"getBlockUnsafe out of bounds error");
 
-	return mapData[x + y * w];		// formula for getting right block in 2 dimensional vector
+	return structureData[x + y * w];		// formula for getting right block in 2 dimensional vector
 }
 
 Block* Structure::getBlockSafe(int x, int y)
 {
-	permaAssertCommentDevelopement(mapData.size() ==
+	permaAssertCommentDevelopement(structureData.size() ==
 		w * h, "Map data not initialized");
 
 	if (x < 0 || y < 0 || x >= w || y >= h) { return nullptr; }
 
-	return &mapData[x + y * w];
+	return &structureData[x + y * w];
 }
 
 void Structure::copyFromMap(GameMap& map, Vector2 start, Vector2 end)

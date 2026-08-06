@@ -10,7 +10,7 @@ struct Structure
 	int w = 0;
 	int h = 0;
 
-	std::vector<Block> mapData;
+	std::vector<Block> structureData;
 
 	void create(int w, int h);
 
