@@ -18,7 +18,7 @@ void Slime::render(AssetManager& assetManager)
 }
 
 
-void Slime::update(float deltaTime, EntityUpdateData entityUpdateData)
+bool Slime::update(float deltaTime, EntityUpdateData entityUpdateData)
 {
 	changeStateTimer -= deltaTime;
 
@@ -98,4 +98,6 @@ void Slime::update(float deltaTime, EntityUpdateData entityUpdateData)
 	}
 
 	animation.update(deltaTime, 0.08, 7);
+
+	return true;
 }

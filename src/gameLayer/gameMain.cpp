@@ -14,6 +14,8 @@
 #include "entities/slime.h"
 #include "entityHolder.h"
 #include "entity.h"
+#include "entities/droppedItem.h"
+#include "player.h"
 
 
 
@@ -31,7 +33,7 @@ struct GameData
 
 	char saveName[100] = {};
 
-	PhysicalEntity player;
+	Player player;
 	EntityHolder entities;
 
 }gameData;
@@ -53,6 +55,18 @@ void spawnSlime(Vector2 position)
 	gameData.entities.entities[id] = std::make_unique<Slime>(slime);
 }
 
+void spawnDroppedItem(Vector2 position, int type)
+{
+	DroppedItem droppedItem;
+
+	droppedItem.teleport(position);
+	droppedItem.itemType = type;
+
+	auto id = gameData.entities.idHolder.getEntityIdAndIncrement();
+
+	gameData.entities.entities[id] = std::make_unique<DroppedItem>(droppedItem);
+}
+
 
 
 bool initGame()
@@ -67,9 +81,9 @@ bool initGame()
 	gameData.camera.rotation = 0.f;
 	gameData.camera.zoom = 100.f;
 	// initialize player
-	gameData.player.teleport({ 20, 125 });
-	gameData.player.transform.w = 0.9f;
-	gameData.player.transform.h = 1.8f;
+	gameData.player.physics.teleport({ 20, 125 });
+	gameData.player.physics.transform.w = 0.9f;
+	gameData.player.physics.transform.h = 1.8f;
 	// initialize slime
 	spawnSlime({ 18, 110 });
 
@@ -92,42 +106,63 @@ bool updateGame()
 #pragma region camera movement
 
 	static float CAMERA_SPEED = 10;
-	if (IsKeyDown(KEY_LEFT)) {gameData.player.transform.pos.x -= CAMERA_SPEED * deltaTime;}
-	if (IsKeyDown(KEY_RIGHT)) { gameData.player.transform.pos.x += CAMERA_SPEED * deltaTime; }
-	if (IsKeyDown(KEY_UP)) { gameData.player.transform.pos.y -= CAMERA_SPEED * deltaTime; }
-	if (IsKeyDown(KEY_DOWN)) { gameData.player.transform.pos.y += CAMERA_SPEED * deltaTime; }
+	if (IsKeyDown(KEY_LEFT)) {gameData.player.physics.transform.pos.x -= CAMERA_SPEED * deltaTime;}
+	if (IsKeyDown(KEY_RIGHT)) { gameData.player.physics.transform.pos.x += CAMERA_SPEED * deltaTime; }
+	if (IsKeyDown(KEY_UP)) { gameData.player.physics.transform.pos.y -= CAMERA_SPEED * deltaTime; }
+	if (IsKeyDown(KEY_DOWN)) { gameData.player.physics.transform.pos.y += CAMERA_SPEED * deltaTime; }
 
-	if (IsKeyDown(KEY_SPACE)) { gameData.player.jump(10); }
+	if (IsKeyDown(KEY_SPACE)) { gameData.player.physics.jump(10); }
 
 #pragma endregion
 
 #pragma region enetities
 
+	auto updateEntityPhysics = [&](auto& entity, bool applyGravity = true)
+		{
+			if (applyGravity) { entity.physics.applyGravity(); }
+
+			entity.physics.updateForces(deltaTime);
+			entity.physics.resolveConstrains(gameData.gameMap);
+			entity.physics.updateFinal();
+		};
+
 	// players
-	gameData.player.applyGravity();
-	gameData.player.updateForces(deltaTime);
-	gameData.player.resolveConstrains(gameData.gameMap);
-	gameData.camera.target = gameData.player.transform.pos;
-	gameData.player.updateFinal();
+	updateEntityPhysics(gameData.player, true);
+
+	gameData.camera.target = gameData.player.physics.transform.pos;
 
 	// update all NPC-entities
 	std::ranlux24_base rng(std::random_device{}());
 
-	EntityUpdateData updateData
+	for (auto it = gameData.entities.entities.begin(); it != gameData.entities.entities.end();)
 	{
-		rng,
-		gameData.player.transform.pos
-	};
+		EntityUpdateData updateData
+		{
+			rng,
+			gameData.player.physics.transform.pos,
+			gameData.entities,
+			it->first
+		};
 
-	for (auto& e : gameData.entities.entities)
-	{
-		e.second->update(deltaTime, updateData);
+		bool shouldKill = false;
 
-		e.second->physics.applyGravity();
+		if (!it->second->update(deltaTime, updateData)
+			|| it->second->life <= 0)
+		{
+			shouldKill = true;
+		}
+		if (shouldKill)
+		{
+			// erase returns the next valid iterator
+			it = gameData.entities.entities.erase(it);
+		}
+		else
+		{
+			//physics
+			updateEntityPhysics(*(it->second));
 
-		e.second->physics.updateForces(deltaTime);
-		e.second->physics.resolveConstrains(gameData.gameMap);
-		e.second->physics.updateFinal();
+			it++;
+		}
 	}
 
 #pragma endregion
@@ -167,6 +202,11 @@ bool updateGame()
 
 			if (b)
 			{
+				if (b->type)
+				{
+					spawnDroppedItem({ (float)blockX + 0.5f, (float)blockY + 0.5f }, b->type);
+				}
+
 				*b = {};
 			}
 		}
@@ -282,13 +322,13 @@ bool updateGame()
 	DrawTexturePro(
 		assetManager.player,
 		{0, 0, (float)assetManager.player.width, (float)assetManager.player.height},
-		getRectangleForEntity(gameData.player.transform, 1, 2), //dest
+		getRectangleForEntity(gameData.player.physics.transform, 1, 2), //dest
 		{0, 0},// origin (top-left corner)
 		0.0f, // rotation
 		WHITE // tint
 	);
 
-	DrawRectangleLinesEx(gameData.player.transform.getAABB(), 0.1,
+	DrawRectangleLinesEx(gameData.player.physics.transform.getAABB(), 0.1,
 		{20, 101, 250, 120});
 
 	EndMode2D();
@@ -299,10 +339,22 @@ bool updateGame()
 	{
 		ImGui::Begin("Game control");
 
-		ImGui::Text("VELOCITY Y: %f", gameData.player.velocity);
+		ImGui::Text("VELOCITY Y: %f", gameData.player.physics.velocity);
 
 		ImGui::SliderFloat("Camera zoom:", &gameData.camera.zoom, 10, 150);
 		ImGui::SliderFloat("Camera speed:", &CAMERA_SPEED, 5, 50);
+
+		if (ImGui::Button("Hurt a slime"))
+		{
+			for (auto& e : gameData.entities.entities)
+			{
+				if (e.second->getEntityType() == EntityType_Slime)
+				{
+					e.second->life -= 3;
+					break;
+				}
+			}
+		}
 
 		if (ImGui::Button("Copy"))
 		{
