@@ -226,7 +226,18 @@ struct PhysicalEntity
 
 	void applyGravity()
 	{
-		acceleration += {0.f, 10.0f};
+		acceleration += {0.f, 20.0f};
+	}
+
+	void jump(float force)
+	{
+		// we dont't use acceleration because that is influenced by delta time,
+		// we directly change the vrlocity with no delta time because we
+		// want the force to happen in one frame only
+		if (downTouch)
+		{
+			velocity.y = -force;
+		}
 	}
 
 	// function to resolve the collisions

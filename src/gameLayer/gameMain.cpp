@@ -11,12 +11,15 @@
 #include <string>
 #include "saveMap.h"
 #include "physics.h"
+#include "entities/slime.h"
+#include "entityHolder.h"
 
 
 
 struct GameData
 {
 	GameMap gameMap;
+
 	Camera2D camera;
 
 	int creativeSelectedBlock = Block::dirt;
@@ -28,12 +31,28 @@ struct GameData
 	char saveName[100] = {};
 
 	PhysicalEntity player;
+	EntityHolder entities;
 
 }gameData;
 
-AssetManager assetManager;
 
+#pragma region global setting
+AssetManager assetManager;
 bool showImgui = false;
+#pragma endregion
+
+void spawnSlime(Vector2 position)
+{
+	Slime slime;
+
+	slime.physics.teleport(position);
+
+	auto id = gameData.entities.idHolder.getEntityIdAndIncrement();
+
+	gameData.entities.entities[id] = slime;
+}
+
+
 
 bool initGame()
 {
@@ -43,17 +62,20 @@ bool initGame()
 	generateWorld(gameData.gameMap);
 
 	// initialize member variables of camera
-	gameData.camera.target = { 0, 110 };  // world-space center of view
+	gameData.camera.target = { 0, 0 };  // world-space center of view
 	gameData.camera.rotation = 0.f;
 	gameData.camera.zoom = 100.f;
-
+	// initialize player
 	gameData.player.teleport({ 20, 125 });
 	gameData.player.transform.w = 0.9f;
 	gameData.player.transform.h = 1.8f;
-
+	// initialize slime
+	spawnSlime({ 18, 110 });
 
 	return true;
 }
+
+
 
 bool updateGame()
 {
@@ -74,15 +96,33 @@ bool updateGame()
 	if (IsKeyDown(KEY_UP)) { gameData.player.transform.pos.y -= CAMERA_SPEED * deltaTime; }
 	if (IsKeyDown(KEY_DOWN)) { gameData.player.transform.pos.y += CAMERA_SPEED * deltaTime; }
 
+	if (IsKeyDown(KEY_SPACE)) { gameData.player.jump(10); }
+
 #pragma endregion
 
 #pragma region enetities
 
+	// players
 	gameData.player.applyGravity();
+	gameData.player.updateForces(deltaTime);
 	gameData.player.resolveConstrains(gameData.gameMap);
-	gameData.player.checkCollisionOnce(gameData.player.transform.pos, gameData.gameMap);
 	gameData.camera.target = gameData.player.transform.pos;
 	gameData.player.updateFinal();
+
+	// slime
+	std::ranlux24_base rng(std::random_device{}());
+
+
+	for (auto& e : gameData.entities.entities)
+	{
+		e.second.update(deltaTime, rng, gameData.player.transform.pos);
+
+		e.second.physics.applyGravity();
+
+		e.second.physics.updateForces(deltaTime);
+		e.second.physics.resolveConstrains(gameData.gameMap);
+		e.second.physics.updateFinal();
+	}
 
 #pragma endregion
 
@@ -100,6 +140,7 @@ bool updateGame()
 		if (IsKeyPressed(KEY_ONE)) { gameData.selectionStart = Vector2{ (float)blockX, (float)blockY }; }
 		if (IsKeyPressed(KEY_TWO)) { gameData.selectionEnd = Vector2{ (float)blockX, (float)blockY }; }
 		if (IsKeyPressed(KEY_THREE)) { gameData.copyStructure.pasteIntoMap(gameData.gameMap, Vector2{ (float)blockX, (float)blockY }); }
+		if (IsKeyPressed(KEY_FOUR)) { spawnSlime(worldPos); }
 
 		// ensure that start-position is smaller than end-position
 		if (gameData.selectionStart.x > gameData.selectionEnd.x)
@@ -225,17 +266,17 @@ bool updateGame()
 	//}
 
 
-	// draw the player
-	Transform2D playerSprite = gameData.player.transform;
-	playerSprite.w = 1;
-	playerSprite.h = 2;
-	//move the sprite so that the bottom of the sprite matches the bottom of the collider
-	playerSprite.pos.y -= (playerSprite.h - gameData.player.transform.h) / 2;
+	// draw the slime
+	for (auto& e : gameData.entities.entities)
+	{
+		e.second.render(assetManager);
+	}
 
+	// draw the player
 	DrawTexturePro(
 		assetManager.player,
 		{0, 0, (float)assetManager.player.width, (float)assetManager.player.height},
-		playerSprite.getAABB(), //dest
+		getRectangleForEntity(gameData.player.transform, 1, 2), //dest
 		{0, 0},// origin (top-left corner)
 		0.0f, // rotation
 		WHITE // tint
@@ -243,6 +284,7 @@ bool updateGame()
 
 	DrawRectangleLinesEx(gameData.player.transform.getAABB(), 0.1,
 		{20, 101, 250, 120});
+
 	EndMode2D();
 #pragma endregion
 
