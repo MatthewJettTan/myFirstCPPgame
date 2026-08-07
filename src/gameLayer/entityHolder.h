@@ -2,6 +2,8 @@
 #include <cstdint>
 #include <unordered_map>
 #include "entities/slime.h"
+#include <memory>
+#include "entity.h"
 
 constexpr static std::uint64_t PLAYER_ID = 1;
 
@@ -16,5 +18,5 @@ struct EntityHolder
 {
 	EntityIdHolder idHolder;
 
-	std::unordered_map<std::uint64_t, Slime> entities;
+	std::unordered_map<std::uint64_t, std::unique_ptr<Entity>> entities;
 };

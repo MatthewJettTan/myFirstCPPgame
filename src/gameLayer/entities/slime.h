@@ -4,12 +4,12 @@
 #include <raylib.h>
 #include <random>
 #include "entityAnimation.h"
+#include "entity.h"
 
 struct AssetManager;
 
-struct Slime
+struct Slime : Entity
 {
-	PhysicalEntity physics;
 
 	Slime()
 	{
@@ -24,9 +24,11 @@ struct Slime
 		return physics.transform.pos;
 	}
 
-	void render(AssetManager& assetManager);
+	void render(AssetManager& assetManager) override;
 
-	void update(float deltaTime, std::ranlux24_base rng, Vector2 playerPosition);
+	void update(float deltaTime, EntityUpdateData entityUpdateData) override;
+
+	int getEntityType() override { return EntityType_Slime; }
 
 	enum
 	{

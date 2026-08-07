@@ -13,6 +13,7 @@
 #include "physics.h"
 #include "entities/slime.h"
 #include "entityHolder.h"
+#include "entity.h"
 
 
 
@@ -49,7 +50,7 @@ void spawnSlime(Vector2 position)
 
 	auto id = gameData.entities.idHolder.getEntityIdAndIncrement();
 
-	gameData.entities.entities[id] = slime;
+	gameData.entities.entities[id] = std::make_unique<Slime>(slime);
 }
 
 
@@ -109,19 +110,24 @@ bool updateGame()
 	gameData.camera.target = gameData.player.transform.pos;
 	gameData.player.updateFinal();
 
-	// slime
+	// update all NPC-entities
 	std::ranlux24_base rng(std::random_device{}());
 
+	EntityUpdateData updateData
+	{
+		rng,
+		gameData.player.transform.pos
+	};
 
 	for (auto& e : gameData.entities.entities)
 	{
-		e.second.update(deltaTime, rng, gameData.player.transform.pos);
+		e.second->update(deltaTime, updateData);
 
-		e.second.physics.applyGravity();
+		e.second->physics.applyGravity();
 
-		e.second.physics.updateForces(deltaTime);
-		e.second.physics.resolveConstrains(gameData.gameMap);
-		e.second.physics.updateFinal();
+		e.second->physics.updateForces(deltaTime);
+		e.second->physics.resolveConstrains(gameData.gameMap);
+		e.second->physics.updateFinal();
 	}
 
 #pragma endregion
@@ -269,7 +275,7 @@ bool updateGame()
 	// draw the slime
 	for (auto& e : gameData.entities.entities)
 	{
-		e.second.render(assetManager);
+		e.second->render(assetManager);
 	}
 
 	// draw the player
