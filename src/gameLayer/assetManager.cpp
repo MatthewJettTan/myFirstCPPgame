@@ -11,4 +11,11 @@ void AssetManager::loadAll()
 	player = LoadTexture(RESOURCES_PATH "player.png");
 
 	slime = LoadTexture(RESOURCES_PATH "slime.png");
+
+	items = LoadTexture(RESOURCES_PATH "items.png");
+
+	forestBG = LoadTexture(RESOURCES_PATH "forestBG.png");
+	desertBG = LoadTexture(RESOURCES_PATH "desertBG.png");
+	snowBG = LoadTexture(RESOURCES_PATH "snowBG.png");
+	caveBG = LoadTexture(RESOURCES_PATH "caveBG.png");
 }

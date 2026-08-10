@@ -16,14 +16,18 @@
 #include "entity.h"
 #include "entities/droppedItem.h"
 #include "player.h"
+#include "items.h"
+#include "audio.h"
+#include "settings.h"
+#include "drawBackground.h"
 
 
 
 struct GameData
 {
 	GameMap gameMap;
-
 	Camera2D camera;
+	DrawBackground background;
 
 	int creativeSelectedBlock = Block::dirt;
 
@@ -71,7 +75,7 @@ void spawnDroppedItem(Vector2 position, int type)
 
 bool initGame()
 {
-
+	Audio::init();
 	assetManager.loadAll();
 
 	generateWorld(gameData.gameMap);
@@ -94,6 +98,8 @@ bool initGame()
 
 bool updateGame()
 {
+	Audio::update();
+
 	float deltaTime = GetFrameTime();
 	if (deltaTime > 1.f / 5) { deltaTime = 1 / 5.f; }
 
@@ -223,6 +229,29 @@ bool updateGame()
 #pragma endregion
 
 #pragma region draw world
+
+	// draw background
+	{
+		int backgroundType = DrawBackground::forest;
+
+		if (gameData.player.getPosition().x > gameData.gameMap.desertStart
+			&& gameData.player.getPosition().x < gameData.gameMap.desertEnd
+			)
+		{
+			backgroundType = DrawBackground::desert;
+		}
+		if (gameData.player.getPosition().y > 130)
+		{
+			backgroundType = DrawBackground::cave;
+		}
+
+		gameData.background.setBackground(backgroundType);
+
+		gameData.background.draw(deltaTime, assetManager, gameData.camera,
+			{ (float)gameData.gameMap.w, (float)gameData.gameMap.h });
+	}
+
+
 	BeginMode2D(gameData.camera);
 
 	Vector2 topLeftView = GetScreenToWorld2D({ 0, 0 }, gameData.camera);
@@ -384,6 +413,17 @@ bool updateGame()
 			loadBlockDataFromFile(gameData.copyStructure.structureData, gameData.copyStructure.w,
 				gameData.copyStructure.h, path.c_str());
 		}
+
+		ImGui::Separator();
+		
+		ImGui::SliderFloat("master volume", &(getSettings().masterVolume), 0, 1);
+		ImGui::SliderFloat("sound volume", &(getSettings().soundsVolume), 0, 1);
+
+		if (ImGui::Button("Play Sound"))
+		{
+			Audio::playSound(Audio::placeBlock);
+		}
+
 
 
 		ImGui::Separator();

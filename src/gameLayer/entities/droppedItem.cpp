@@ -2,14 +2,18 @@
 #include "assetManager.h"
 #include "helpers.h"
 #include "entityHolder.h"
+#include "items.h"
 
 void DroppedItem::render(AssetManager& assetManager)
 {
 	auto aabb = getRectangleForEntity(physics.transform, 1, 1);
 
+	Texture2D texture = getTextureForItemType(itemType, assetManager);
+	Rectangle rectangle = getTextureCoordinatesForItemType(itemType);
+
 	DrawTexturePro(
-		assetManager.textures,
-		getTextureAtlas(itemType, 4, 32, 32),
+		texture,
+		rectangle,
 		aabb,
 		{ 0,0 },
 		0.0f,
