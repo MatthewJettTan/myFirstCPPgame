@@ -18,4 +18,13 @@ void AssetManager::loadAll()
 	desertBG = LoadTexture(RESOURCES_PATH "desertBG.png");
 	snowBG = LoadTexture(RESOURCES_PATH "snowBG.png");
 	caveBG = LoadTexture(RESOURCES_PATH "caveBG.png");
+
+	playerFeet = LoadTexture(RESOURCES_PATH "body/player_feet.png");
+	playerBack = LoadTexture(RESOURCES_PATH "body/player_back.png");
+	playerFront = LoadTexture(RESOURCES_PATH "body/player_front.png");
+	playerHead = LoadTexture(RESOURCES_PATH "body/player_head.png");
+
+	hearts = LoadTexture(RESOURCES_PATH "hearts.png");
+
+	
 }

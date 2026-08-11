@@ -20,6 +20,7 @@
 #include "audio.h"
 #include "settings.h"
 #include "drawBackground.h"
+#include "ui.h"
 
 
 
@@ -112,13 +113,64 @@ bool updateGame()
 #pragma region camera movement
 
 	static float CAMERA_SPEED = 10;
-	if (IsKeyDown(KEY_LEFT)) {gameData.player.physics.transform.pos.x -= CAMERA_SPEED * deltaTime;}
-	if (IsKeyDown(KEY_RIGHT)) { gameData.player.physics.transform.pos.x += CAMERA_SPEED * deltaTime; }
-	if (IsKeyDown(KEY_UP)) { gameData.player.physics.transform.pos.y -= CAMERA_SPEED * deltaTime; }
-	if (IsKeyDown(KEY_DOWN)) { gameData.player.physics.transform.pos.y += CAMERA_SPEED * deltaTime; }
+	static bool creativeMode = false;
+	{
+		bool moving = 0;
+		bool falling = 0;
 
-	if (IsKeyDown(KEY_SPACE)) { gameData.player.physics.jump(10); }
 
+		if (IsKeyDown(KEY_LEFT)) 
+		{
+			gameData.player.physics.transform.pos.x -= CAMERA_SPEED * deltaTime; 
+			moving = true;
+			gameData.player.animations.movingLeft = true;
+		}
+		if (IsKeyDown(KEY_RIGHT)) 
+		{ 
+			gameData.player.physics.transform.pos.x += CAMERA_SPEED * deltaTime; 
+			moving = true;
+			gameData.player.animations.movingLeft = false;
+		}
+		if (creativeMode == true)
+		{
+			if (IsKeyDown(KEY_UP))
+			{
+				gameData.player.physics.transform.pos.y -= CAMERA_SPEED * deltaTime;
+				moving = true;
+			}
+			if (IsKeyDown(KEY_DOWN))
+			{
+				gameData.player.physics.transform.pos.y += CAMERA_SPEED * deltaTime;
+				moving = true;
+			}
+		}
+		if (IsKeyDown(KEY_SPACE)) 
+		{
+			gameData.player.physics.jump(10.0); 
+		}
+
+		if (gameData.player.physics.downTouch)
+		{
+			falling = 0;
+		}
+		else
+		{
+			falling = 1;
+		}
+
+		if (falling)
+		{
+			gameData.player.animations.setAnimation(2);
+		}
+		else if (moving)
+		{
+			gameData.player.animations.setAnimation(1);
+		}
+		else {
+			gameData.player.animations.setAnimation(0);
+		}
+		gameData.player.animations.update(deltaTime, 0.08, 7);
+	}
 #pragma endregion
 
 #pragma region enetities
@@ -133,7 +185,7 @@ bool updateGame()
 		};
 
 	// players
-	updateEntityPhysics(gameData.player, true);
+	updateEntityPhysics(gameData.player, !creativeMode);
 
 	gameData.camera.target = gameData.player.physics.transform.pos;
 
@@ -258,9 +310,9 @@ bool updateGame()
 	Vector2 bottomRightView = GetScreenToWorld2D({ (float)GetScreenWidth(), (float)GetScreenHeight() }, gameData.camera);
 
 	int startXView = (int)floorf(topLeftView.x - 1);
-	int endXView = (int)ceilf(bottomRightView.x - 1);
+	int endXView = (int)ceilf(bottomRightView.x + 1);
 	int startYView = (int)floorf(topLeftView.y - 1);
-	int endYView = (int)ceilf(bottomRightView.y - 1);
+	int endYView = (int)ceilf(bottomRightView.y + 1);
 
 	startXView = Clamp(startXView, 0, gameData.gameMap.w - 1);
 	endXView = Clamp(endXView, 0, gameData.gameMap.w - 1);
@@ -348,20 +400,51 @@ bool updateGame()
 	}
 
 	// draw the player
-	DrawTexturePro(
-		assetManager.player,
-		{0, 0, (float)assetManager.player.width, (float)assetManager.player.height},
-		getRectangleForEntity(gameData.player.physics.transform, 1, 2), //dest
-		{0, 0},// origin (top-left corner)
-		0.0f, // rotation
-		WHITE // tint
-	);
+	gameData.player.render(assetManager);
 
 	DrawRectangleLinesEx(gameData.player.physics.transform.getAABB(), 0.1,
 		{20, 101, 250, 120});
 
 	EndMode2D();
 #pragma endregion
+
+#pragma region ui
+
+	{
+		float w = GetScreenWidth();
+		float h = GetScreenHeight();
+
+		Rectangle heartRectangle;
+
+		heartRectangle.height = h * 0.05f;
+		heartRectangle.width = heartRectangle.height * 5;
+
+		heartRectangle = placeRectangleTopRightCorner(heartRectangle, w);
+
+		// test the frawing area
+		//DrawRectangle(heartRectangle.x, heartRectangle.y, heartRectangle.width, heartRectangle.height, 
+		//	{ 230, 41, 55, 155 });
+
+		// draw the heart
+		for (int i = 0; i < 5; i++)
+		{
+			Rectangle oneHeartRectangle = heartRectangle;
+			oneHeartRectangle.width = oneHeartRectangle.height;
+			oneHeartRectangle.x += oneHeartRectangle.width * i;
+
+			DrawTexturePro(
+				assetManager.hearts,
+				getTextureAtlas(0, 0, assetManager.hearts.width / 3, assetManager.hearts.height),
+				oneHeartRectangle,
+				{ 0, 0 },
+				0.f,
+				WHITE
+			);
+		}
+	}
+
+#pragma endregion
+
 
 #pragma region ImGui
 	if (showImgui == true)
@@ -372,6 +455,7 @@ bool updateGame()
 
 		ImGui::SliderFloat("Camera zoom:", &gameData.camera.zoom, 10, 150);
 		ImGui::SliderFloat("Camera speed:", &CAMERA_SPEED, 5, 50);
+		ImGui::Checkbox("CreativeMode:", &creativeMode);
 
 		if (ImGui::Button("Hurt a slime"))
 		{
